@@ -4,12 +4,492 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Zotask — Accomplis des tâches. Multiplie ton argent.</title>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <meta name="description" content="Dépose, réalise des missions sponsorisées et retire tes gains via Mobile Money." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Kkiapay -->
+  <script src="https://cdn.kkiapay.me/k.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #060d1a; color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
+    #app { max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; }
+
+    @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+    .slide { animation: fadeUp 0.3s ease both; }
+    .float { animation: float 3.5s ease-in-out infinite; }
+    .spinner { animation: spin 0.8s linear infinite; }
+
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 99px; }
+
+    .logo {
+      font-size: 22px; font-weight: 900; cursor: pointer; user-select: none;
+      background: linear-gradient(135deg,#00ffa3,#00d4ff);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    .gcard {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px; padding: 20px;
+      transition: border-color 0.2s;
+    }
+    .gcard.clickable { cursor: pointer; }
+    .gcard.clickable:hover { border-color: rgba(0,255,163,0.3); }
+
+    .zbtn {
+      width: 100%; padding: 15px 0; border-radius: 14px; border: none;
+      font-weight: 900; font-size: 15px; cursor: pointer;
+      font-family: inherit; letter-spacing: 0.3px;
+      transition: transform 0.1s;
+    }
+    .zbtn:active { transform: scale(0.97); }
+    .zbtn.disabled { background: #1e293b !important; color: #475569 !important; cursor: not-allowed; box-shadow: none !important; }
+
+    .pill {
+      display: inline-block; padding: 3px 12px; border-radius: 99px;
+      font-size: 11px; font-weight: 800; letter-spacing: 0.5px;
+    }
+    .pill.small { padding: 2px 8px; font-size: 10px; }
+
+    input, select {
+      width: 100%; padding: 14px 16px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      color: #f8fafc; font-size: 14px; font-family: inherit;
+      margin-bottom: 12px; outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: #00ffa3; }
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    select option { background: #0f172a; }
+
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 20px 0;
+    }
+
+    .navbar {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 480px;
+      background: rgba(6,13,26,0.96);
+      border-top: 1px solid rgba(255,255,255,0.05);
+      display: flex; justify-content: space-around; padding: 12px 0;
+      backdrop-filter: blur(20px); z-index: 100;
+    }
+    .navbtn {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      border: none; background: none; cursor: pointer;
+      font-size: 10px; font-weight: 800; font-family: inherit;
+      letter-spacing: 0.5px; transition: color 0.2s;
+    }
+    .navbtn .icon { font-size: 22px; }
+
+    .toast {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      padding: 12px 24px; border-radius: 14px; z-index: 9999;
+      font-weight: 700; font-size: 14px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.8);
+      white-space: nowrap; animation: fadeUp 0.25s ease;
+    }
+    .toast.success { background: #052e16; border: 1px solid #22c55e; }
+    .toast.error { background: #450a0a; border: 1px solid #ef4444; }
+
+    .balance-card {
+      border-radius: 24px; padding: 24px; margin-bottom: 16px;
+      background: linear-gradient(135deg,#071a2e,#0a1f38);
+      border: 1px solid rgba(0,255,163,0.12);
+      position: relative; overflow: hidden;
+    }
+    .balance-amount {
+      font-size: 38px; font-weight: 900; color: #00ffa3; margin-bottom: 12px;
+    }
+
+    .progress-bar {
+      background: rgba(255,255,255,0.05); border-radius: 99px;
+      height: 10px; overflow: hidden; margin-bottom: 8px;
+    }
+    .progress-fill {
+      height: 100%; border-radius: 99px;
+      transition: width 0.6s ease;
+      box-shadow: 0 0 12px rgba(0,255,163,0.4);
+    }
+
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+      z-index: 200; display: flex; align-items: flex-end;
+    }
+    .modal-content {
+      background: #0f172a; border-radius: 24px 24px 0 0;
+      padding: 24px; width: 100%; max-width: 480px; margin: 0 auto;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .hidden { display: none !important; }
+    .pb80 { padding-bottom: 80px; }
+  </style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="text/babel" src="app.jsx"></script>
-</body>
-</html>
+<div id="app">
+  <div id="loading" style="display:flex;align-items:center;justify-content:center;min-height:100vh;">
+    <div style="text-align:center">
+      <div class="float" style="font-size:60px;margin-bottom:16px">⚡</div>
+      <div class="logo" style="font-size:28px">Zotask</div>
+      <div style="margin-top:16px;color:#334155;display:flex;align-items:center;gap:8px;justify-content:center">
+        <div class="spinner" style="width:16px;height:16px;border:2px solid #334155;border-top-color:#00ffa3;border-radius:50%"></div>
+        Chargement...
+      </div>
+    </div>
+  </div>
+  <div id="main" class="hidden"></div>
+</div>
+
+<script>
+// ═══════════════════════════════
+// FIREBASE CONFIG
+// ═══════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyCvdZpokkKNJYUKJYozNH7a-LIG6_mZar0",
+  authDomain: "zotask-32227.firebaseapp.com",
+  projectId: "zotask-32227",
+  storageBucket: "zotask-32227.firebasestorage.app",
+  messagingSenderId: "434933342924",
+  appId: "1:434933342924:web:e6f30866e9b07517ee1869",
+  databaseURL: "https://zotask-32227-default-rtdb.firebaseio.com/"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+// ═══════════════════════════════
+// CONFIG
+// ═══════════════════════════════
+const KKIAPAY_ID = "6a0595134337716e6694f2cf";
+const ADMIN_EMAIL = "zotask.app@gmail.com";
+const ADMIN_RATE = 0.15;
+const WITHDRAW_MULT = 2;
+
+const PLANS = [
+  { amount:1000,  label:"Starter", color:"#00ffa3", tasks:2,  gainUser:50,  gainAdmin:150, emoji:"🌱" },
+  { amount:2000,  label:"Basic",   color:"#00d4ff", tasks:4,  gainUser:75,  gainAdmin:125, emoji:"⚡" },
+  { amount:5000,  label:"Pro",     color:"#a78bfa", tasks:6,  gainUser:150, gainAdmin:50,  emoji:"🚀" },
+  { amount:10000, label:"Elite",   color:"#fbbf24", tasks:10, gainUser:200, gainAdmin:0,   emoji:"👑" },
+];
+
+const TASKS = [
+  { id:"ad",     icon:"📺", label:"Regarder une publicité",  type:"timer",  duration:15 },
+  { id:"survey", icon:"📋", label:"Sondage sponsorisé",      type:"survey", duration:0  },
+  { id:"game",   icon:"🎮", label:"Mini-jeu",                type:"game",   duration:0  },
+  { id:"browse", icon:"🌐", label:"Navigation sponsorisée",  type:"timer",  duration:20 },
+  { id:"video",  icon:"🎬", label:"Regarder une vidéo",     type:"timer",  duration:30 },
+  { id:"refer",  icon:"👥", label:"Parrainer un ami",        type:"refer",  duration:0  },
+  { id:"signup", icon:"📝", label:"Inscription partenaire",  type:"timer",  duration:10 },
+];
+
+const COUNTRIES = [
+  { code:"BJ", name:"Bénin",         flag:"🇧🇯" },
+  { code:"SN", name:"Sénégal",       flag:"🇸🇳" },
+  { code:"CI", name:"Côte d'Ivoire", flag:"🇨🇮" },
+  { code:"TG", name:"Togo",          flag:"🇹🇬" },
+  { code:"BF", name:"Burkina Faso",  flag:"🇧🇫" },
+  { code:"ML", name:"Mali",          flag:"🇲🇱" },
+  { code:"GN", name:"Guinée",        flag:"🇬🇳" },
+  { code:"NE", name:"Niger",         flag:"🇳🇪" },
+];
+
+// ═══════════════════════════════
+// STATE
+// ═══════════════════════════════
+let state = {
+  screen: "landing",
+  user: null,
+  userData: null,
+  history: [],
+  selectedPlan: null,
+  activeTask: null,
+  taskState: null,
+  taskTimer: null,
+  surveyStep: 0,
+  gameSecret: 0,
+  withdrawMethod: null,
+  withdrawPhone: "",
+  withdrawDone: false,
+  showAdmin: false,
+  adminStats: { users:0, totalCommission:0 },
+  logoTaps: 0,
+  toast: null,
+  toastTimer: null,
+};
+
+// ═══════════════════════════════
+// HELPERS
+// ═══════════════════════════════
+const fmt = n => Math.round(n||0).toLocaleString("fr-FR") + " FCFA";
+const nowStr = () => new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+const todayStr = () => new Date().toISOString().split("T")[0];
+const getPlan = amt => PLANS.find(p=>p.amount===amt)||PLANS[0];
+
+function notify(msg, type="success") {
+  if (state.toastTimer) clearTimeout(state.toastTimer);
+  state.toast = { msg, type };
+  render();
+  state.toastTimer = setTimeout(() => { state.toast = null; render(); }, 3500);
+}
+
+function setScreen(s) {
+  state.screen = s;
+  window.scrollTo(0,0);
+  render();
+}
+
+function tapLogo() {
+  state.logoTaps++;
+  if (state.logoTaps >= 7) {
+    state.showAdmin = true;
+    state.logoTaps = 0;
+    notify("Panel admin activé 🔓");
+  }
+}
+
+function getTasksToday() {
+  if (!state.userData) return 0;
+  if (state.userData.lastTaskDate !== todayStr()) return 0;
+  return state.userData.tasksToday || 0;
+}
+
+// ═══════════════════════════════
+// FIREBASE OPERATIONS
+// ═══════════════════════════════
+async function loadUser(uid) {
+  const snap = await db.ref(`users/${uid}`).get();
+  if (snap.exists()) {
+    state.userData = snap.val();
+    const hSnap = await db.ref(`transactions/${uid}`).get();
+    if (hSnap.exists()) state.history = Object.values(hSnap.val()).reverse();
+    setScreen(state.userData.depositAmount > 0 ? "dashboard" : "plans");
+  } else {
+    setScreen("plans");
+  }
+}
+
+async function doRegister(name, email, password, country, ref) {
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, password);
+    const refCode = "ZT" + Math.random().toString(36).substr(2,6).toUpperCase();
+    const newUser = {
+      uid: cred.user.uid, name, email, ref: refCode, country,
+      balance: ref ? 500 : 0,
+      depositAmount:0, tasksDone:0, totalEarned:0,
+      adminEarned:0, tasksToday:0, lastTaskDate:"",
+      joined: new Date().toISOString(),
+    };
+    await db.ref(`users/${cred.user.uid}`).set(newUser);
+    state.userData = newUser;
+    if (ref) notify("Bonus parrainage : +500 FCFA ! 🎉");
+    setScreen("plans");
+  } catch(e) {
+    const msgs = {
+      "auth/email-already-in-use":"Email déjà utilisé",
+      "auth/invalid-email":"Email invalide",
+      "auth/weak-password":"Mot de passe trop faible",
+    };
+    notify(msgs[e.code]||"Erreur d'inscription","error");
+  }
+}
+
+async function doLogin(email, password) {
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+  } catch(e) {
+    const msgs = {
+      "auth/user-not-found":"Compte introuvable",
+      "auth/wrong-password":"Mot de passe incorrect",
+      "auth/invalid-credential":"Email ou mot de passe incorrect",
+    };
+    notify(msgs[e.code]||"Erreur de connexion","error");
+  }
+}
+
+async function doDeposit(plan) {
+  const adminCut = Math.round(plan.amount * ADMIN_RATE);
+  const net = plan.amount - adminCut;
+  const updated = {
+    ...state.userData,
+    balance: (state.userData.balance||0) + net,
+    depositAmount: plan.amount,
+    adminEarned: (state.userData.adminEarned||0) + adminCut,
+    tasksToday: 0, lastTaskDate: todayStr(),
+  };
+  await db.ref(`users/${state.user.uid}`).update(updated);
+  await db.ref(`transactions/${state.user.uid}`).push({
+    type:"deposit", label:`Dépôt ${plan.label}`,
+    amount:plan.amount, net, admin:adminCut, date:nowStr()
+  });
+  const adminSnap = await db.ref("admin/totalCommission").get();
+  await db.ref("admin/totalCommission").set((adminSnap.exists()?adminSnap.val():0)+adminCut);
+  state.userData = updated;
+  state.history = [{ type:"deposit", label:`Dépôt ${plan.label}`, amount:plan.amount, net, date:nowStr() }, ...state.history];
+  state.selectedPlan = null;
+  notify(`✅ Dépôt de ${fmt(plan.amount)} confirmé !`);
+  setScreen("dashboard");
+}
+
+async function completeTask(success) {
+  if (!success) { state.taskState = "fail"; render(); return; }
+  const plan = getPlan(state.userData.depositAmount);
+  const gain = plan.gainUser;
+  const adminGain = plan.gainAdmin;
+  const newTasksToday = (state.userData.lastTaskDate===todayStr()?(state.userData.tasksToday||0):0)+1;
+  const updated = {
+    ...state.userData,
+    balance: (state.userData.balance||0)+gain,
+    tasksDone: (state.userData.tasksDone||0)+1,
+    totalEarned: (state.userData.totalEarned||0)+gain,
+    adminEarned: (state.userData.adminEarned||0)+adminGain,
+    tasksToday: newTasksToday,
+    lastTaskDate: todayStr(),
+  };
+  await db.ref(`users/${state.user.uid}`).update(updated);
+  await db.ref(`transactions/${state.user.uid}`).push({
+    type:"task", label:state.activeTask.label, gain, admin:adminGain, date:nowStr()
+  });
+  if (adminGain > 0) {
+    const adminSnap = await db.ref("admin/totalCommission").get();
+    await db.ref("admin/totalCommission").set((adminSnap.exists()?adminSnap.val():0)+adminGain);
+  }
+  state.userData = updated;
+  state.history = [{ type:"task", label:state.activeTask.label, gain, date:nowStr() }, ...state.history];
+  state.taskState = "done";
+  notify(`+${fmt(gain)} crédités ! 🎉`);
+  render();
+}
+
+async function doWithdraw() {
+  if (!state.withdrawMethod) return notify("Choisis une méthode","error");
+  if (!state.withdrawPhone||state.withdrawPhone.length<8) return notify("Numéro invalide","error");
+  const adminCut = Math.round((state.userData.balance||0)*ADMIN_RATE);
+  const net = (state.userData.balance||0)-adminCut;
+  const updated = { ...state.userData, balance:0, depositAmount:0, adminEarned:(state.userData.adminEarned||0)+adminCut };
+  await db.ref(`users/${state.user.uid}`).update(updated);
+  await db.ref(`transactions/${state.user.uid}`).push({
+    type:"withdraw", label:`Retrait ${state.withdrawMethod}`,
+    amount:state.userData.balance, net, phone:state.withdrawPhone, admin:adminCut, date:nowStr()
+  });
+  const adminSnap = await db.ref("admin/totalCommission").get();
+  await db.ref("admin/totalCommission").set((adminSnap.exists()?adminSnap.val():0)+adminCut);
+  state.userData = updated;
+  state.withdrawDone = true;
+  notify("Retrait en cours de traitement !");
+  render();
+}
+
+async function loadAdminStats() {
+  const usersSnap = await db.ref("users").get();
+  const adminSnap = await db.ref("admin/totalCommission").get();
+  state.adminStats = {
+    users: usersSnap.exists() ? Object.keys(usersSnap.val()).length : 0,
+    totalCommission: adminSnap.exists() ? adminSnap.val() : 0,
+  };
+  render();
+}
+
+// ═══════════════════════════════
+// KKIAPAY
+// ═══════════════════════════════
+function openKkiapay(plan) {
+  state.selectedPlan = plan;
+  openKkiapayWidget({
+    amount: plan.amount,
+    key: KKIAPAY_ID,
+    sandbox: false,
+    phone: "",
+  });
+  addSuccessListener(async (response) => {
+    await doDeposit(plan);
+  });
+}
+
+// ═══════════════════════════════
+// RENDER
+// ═══════════════════════════════
+function render() {
+  const main = document.getElementById("main");
+  const loading = document.getElementById("loading");
+  loading.classList.add("hidden");
+  main.classList.remove("hidden");
+  main.innerHTML = buildHTML();
+  attachEvents();
+}
+
+function buildHTML() {
+  const s = state;
+  let html = "";
+
+  // TOAST
+  if (s.toast) {
+    html += `<div class="toast ${s.toast.type}">${s.toast.msg}</div>`;
+  }
+
+  const plan = s.userData ? getPlan(s.userData.depositAmount) : null;
+  const tasksToday = getTasksToday();
+  const maxTasks = plan ? plan.tasks : 0;
+  const canDoTask = tasksToday < maxTasks && s.userData && s.userData.depositAmount > 0;
+  const canWithdraw = s.userData && (s.userData.balance||0) >= ((s.userData.depositAmount||0)*WITHDRAW_MULT) && (s.userData.depositAmount||0)>=1000;
+  const progress = s.userData && s.userData.depositAmount > 0 ? Math.min(((s.userData.balance||0)/((s.userData.depositAmount||1)*2))*100,100) : 0;
+
+  // HEADER
+  const header = `
+    <div class="header">
+      <span class="logo" onclick="tapLogo()">Zotask</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${s.showAdmin ? `<button onclick="setScreen('admin')" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);color:#fbbf24;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">ADMIN 🔑</button>` : ""}
+        ${s.userData ? `<div style="text-align:right"><div style="font-size:10px;color:#334155">Solde</div><div style="font-weight:900;color:#00ffa3;font-size:14px">${fmt(s.userData.balance)}</div></div>` : ""}
+      </div>
+    </div>`;
+
+  // NAVBAR
+  const navbar = `
+    <div class="navbar">
+      ${[["🏠","Accueil","dashboard"],["⚡","Tâches","dashboard"],["📜","Historique","history"],["💸","Retrait","withdraw"]].map(([icon,label,scr])=>`
+        <button class="navbtn" onclick="setScreen('${scr}')" style="color:${s.screen===scr?'#00ffa3':'#334155'}">
+          <span class="icon">${icon}</span>${label}
+        </button>`).join("")}
+    </div>`;
+
+  // ── LANDING ──
+  if (s.screen === "landing") {
+    html += `
+      <div style="min-height:100vh;background:linear-gradient(160deg,#060d1a,#080f20,#06111a)">
+        <div class="header"><span class="logo" onclick="tapLogo()">Zotask</span></div>
+        <div style="padding:40px 24px 0;text-align:center">
+          <div class="float" style="font-size:80px;margin-bottom:12px">💰</div>
+          <h1 style="font-size:32px;font-weight:900;line-height:1.2;margin-bottom:16px">
+            Accomplis des tâches.<br>
+            <span style="background:linear-gradient(135deg,#00ffa3,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Multiplie ton argent.</span>
+          </h1>
+          <p style="color:#475569;font-size:15px;line-height:1.8;max-width:360px;margin:0 auto 32px">
+            Dépose via Mobile Money, réalise des missions et retire tes gains.
+          </p>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:32px">
+            ${COUNTRIES.slice(0,4).map(c=>`<div class="gcard" style="padding:10px;text-align:center"><div style="font-size:24px">${c.flag}</div><div style="font-size:10px;color:#334155;margin-top:4px">${c.name}</div></div>`).join("")}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button class="zbtn" onclick="setScreen('register')" style="background:linear-gradient(135deg,#00ffa3,#00ffa3bb);color:#0a0f1a;box-shadow:0 4px 20px rgba(0,255,163,0.3)">Commencer gratuitement →</button>
+            <button class="zbtn" onclick="setScreen('login')" style="background:#1e293b;color:#64748b">Se connecter</button>
+          </div>
+        </div>
+        <div style="padding:40px 24px">
+          <div style="font-size:20px;font-weight:900;margin-bottom:16px;text-align:center">Nos plans</div>
+          <div class="gcard">
+            ${PLANS.map(p=>`
+              <div style="display:
