@@ -2,163 +2,242 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Zotask — Accomplis des tâches. Multiplie ton argent.</title>
-  <meta name="description" content="Dépose, réalise des missions sponsorisées et retire tes gains via Mobile Money." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Zotask — Multiplie ton argent</title>
+  <meta name="description" content="Accomplis des tâches sponsorisées et retire tes gains via Mobile Money." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
-  <!-- Kkiapay -->
-  <script src="https://cdn.kkiapay.me/k.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
 
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #060d1a; color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
-    #app { max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; }
+    :root {
+      --green: #00ffa3;
+      --blue: #00d4ff;
+      --purple: #a78bfa;
+      --gold: #fbbf24;
+      --red: #ef4444;
+      --bg: #060d1a;
+      --card: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.07);
+      --text: #f8fafc;
+      --muted: #475569;
+      --dark: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overflow-x: hidden; }
+    body { background: var(--bg); color: var(--text); font-family: 'Sora', sans-serif; }
 
-    @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-    @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+    #root { max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; }
 
-    .slide { animation: fadeUp 0.3s ease both; }
-    .float { animation: float 3.5s ease-in-out infinite; }
-    .spinner { animation: spin 0.8s linear infinite; }
+    /* Animations */
+    @keyframes fadeUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    @keyframes slideIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
 
-    ::-webkit-scrollbar { width: 3px; }
-    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 99px; }
+    .anim-fadeUp { animation: fadeUp 0.35s ease both; }
+    .anim-float { animation: float 4s ease-in-out infinite; }
 
-    .logo {
-      font-size: 22px; font-weight: 900; cursor: pointer; user-select: none;
-      background: linear-gradient(135deg,#00ffa3,#00d4ff);
+    /* Loader */
+    #loader {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; flex-direction: column; gap: 16px;
+    }
+    .loader-spinner {
+      width: 40px; height: 40px; border: 3px solid var(--dark);
+      border-top-color: var(--green); border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .loader-logo {
+      font-size: 32px; font-weight: 900;
+      background: linear-gradient(135deg, var(--green), var(--blue));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
 
-    .gcard {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 20px; padding: 20px;
-      transition: border-color 0.2s;
-    }
-    .gcard.clickable { cursor: pointer; }
-    .gcard.clickable:hover { border-color: rgba(0,255,163,0.3); }
-
-    .zbtn {
-      width: 100%; padding: 15px 0; border-radius: 14px; border: none;
-      font-weight: 900; font-size: 15px; cursor: pointer;
-      font-family: inherit; letter-spacing: 0.3px;
-      transition: transform 0.1s;
-    }
-    .zbtn:active { transform: scale(0.97); }
-    .zbtn.disabled { background: #1e293b !important; color: #475569 !important; cursor: not-allowed; box-shadow: none !important; }
-
-    .pill {
-      display: inline-block; padding: 3px 12px; border-radius: 99px;
-      font-size: 11px; font-weight: 800; letter-spacing: 0.5px;
-    }
-    .pill.small { padding: 2px 8px; font-size: 10px; }
-
-    input, select {
-      width: 100%; padding: 14px 16px; border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.08);
-      background: rgba(255,255,255,0.04);
-      color: #f8fafc; font-size: 14px; font-family: inherit;
-      margin-bottom: 12px; outline: none;
-      transition: border-color 0.2s;
-    }
-    input:focus, select:focus { border-color: #00ffa3; }
-    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
-    select option { background: #0f172a; }
-
-    .header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 20px 20px 0;
-    }
-
-    .navbar {
-      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-      width: 100%; max-width: 480px;
-      background: rgba(6,13,26,0.96);
-      border-top: 1px solid rgba(255,255,255,0.05);
-      display: flex; justify-content: space-around; padding: 12px 0;
-      backdrop-filter: blur(20px); z-index: 100;
-    }
-    .navbtn {
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
-      border: none; background: none; cursor: pointer;
-      font-size: 10px; font-weight: 800; font-family: inherit;
-      letter-spacing: 0.5px; transition: color 0.2s;
-    }
-    .navbtn .icon { font-size: 22px; }
-
+    /* Toast */
     .toast {
       position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
       padding: 12px 24px; border-radius: 14px; z-index: 9999;
-      font-weight: 700; font-size: 14px;
-      box-shadow: 0 8px 40px rgba(0,0,0,0.8);
-      white-space: nowrap; animation: fadeUp 0.25s ease;
+      font-weight: 700; font-size: 14px; white-space: nowrap;
+      animation: fadeUp 0.25s ease;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      max-width: 90vw; text-align: center;
     }
-    .toast.success { background: #052e16; border: 1px solid #22c55e; }
-    .toast.error { background: #450a0a; border: 1px solid #ef4444; }
+    .toast-success { background: #052e16; border: 1px solid #22c55e; color: #f8fafc; }
+    .toast-error { background: #450a0a; border: 1px solid var(--red); color: #f8fafc; }
 
-    .balance-card {
-      border-radius: 24px; padding: 24px; margin-bottom: 16px;
-      background: linear-gradient(135deg,#071a2e,#0a1f38);
-      border: 1px solid rgba(0,255,163,0.12);
-      position: relative; overflow: hidden;
+    /* Cards */
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 20px;
+      transition: border-color 0.2s, transform 0.15s;
     }
-    .balance-amount {
-      font-size: 38px; font-weight: 900; color: #00ffa3; margin-bottom: 12px;
+    .card-click { cursor: pointer; }
+    .card-click:active { transform: scale(0.98); border-color: rgba(0,255,163,0.3); }
+
+    /* Buttons */
+    .btn {
+      width: 100%; padding: 16px; border-radius: 14px; border: none;
+      font-weight: 800; font-size: 15px; cursor: pointer;
+      font-family: inherit; letter-spacing: 0.3px;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-green { background: linear-gradient(135deg, var(--green), #00cc83); color: #0a0f1a; box-shadow: 0 4px 20px rgba(0,255,163,0.3); }
+    .btn-blue { background: linear-gradient(135deg, var(--blue), #0099cc); color: #0a0f1a; box-shadow: 0 4px 20px rgba(0,212,255,0.3); }
+    .btn-gold { background: linear-gradient(135deg, var(--gold), #e6a800); color: #0a0f1a; box-shadow: 0 4px 20px rgba(251,191,36,0.3); }
+    .btn-red { background: linear-gradient(135deg, var(--red), #cc2222); color: #fff; }
+    .btn-ghost { background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid var(--border); }
+    .btn-disabled { background: #1e293b !important; color: #475569 !important; cursor: not-allowed !important; box-shadow: none !important; }
+
+    /* Inputs */
+    .inp {
+      width: 100%; padding: 14px 16px; border-radius: 12px;
+      border: 1.5px solid var(--border); background: rgba(255,255,255,0.04);
+      color: var(--text); font-size: 15px; font-family: inherit;
+      margin-bottom: 12px; outline: none; transition: border-color 0.2s;
+    }
+    .inp:focus { border-color: var(--green); }
+    select.inp option { background: #0f172a; }
+
+    /* Pills */
+    .pill {
+      display: inline-flex; align-items: center; padding: 4px 12px;
+      border-radius: 99px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px;
+    }
+    .pill-sm { padding: 2px 8px; font-size: 10px; }
+
+    /* Header */
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 20px 0; position: sticky; top: 0; z-index: 50;
+      background: linear-gradient(to bottom, var(--bg) 80%, transparent);
+    }
+    .logo {
+      font-size: 22px; font-weight: 900; cursor: pointer; user-select: none;
+      background: linear-gradient(135deg, var(--green), var(--blue));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
 
-    .progress-bar {
-      background: rgba(255,255,255,0.05); border-radius: 99px;
-      height: 10px; overflow: hidden; margin-bottom: 8px;
+    /* Navbar */
+    .navbar {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 480px;
+      background: rgba(6,13,26,0.97); border-top: 1px solid var(--border);
+      display: flex; justify-content: space-around; padding: 10px 0 14px;
+      backdrop-filter: blur(20px); z-index: 100;
+    }
+    .nav-item {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      border: none; background: none; cursor: pointer; padding: 4px 12px;
+      font-size: 10px; font-weight: 700; font-family: inherit;
+      letter-spacing: 0.5px; transition: color 0.2s; color: var(--dark);
+    }
+    .nav-item.active { color: var(--green); }
+    .nav-item .nav-icon { font-size: 22px; }
+
+    /* Progress */
+    .progress-track {
+      background: rgba(255,255,255,0.06); border-radius: 99px; height: 10px; overflow: hidden;
     }
     .progress-fill {
-      height: 100%; border-radius: 99px;
-      transition: width 0.6s ease;
-      box-shadow: 0 0 12px rgba(0,255,163,0.4);
+      height: 100%; border-radius: 99px; transition: width 0.6s ease;
     }
 
+    /* Divider */
+    .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+    /* Screen padding */
+    .screen { padding-bottom: 90px; }
+
+    /* Plan card */
+    .plan-card {
+      border-radius: 20px; padding: 20px; margin-bottom: 14px;
+      cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden;
+    }
+    .plan-card:active { transform: scale(0.98); }
+
+    /* Balance hero */
+    .balance-hero {
+      border-radius: 24px; padding: 24px; margin-bottom: 16px;
+      background: linear-gradient(135deg, #071a2e 0%, #0d2440 100%);
+      border: 1px solid rgba(0,255,163,0.15);
+      position: relative; overflow: hidden;
+    }
+    .balance-hero::before {
+      content: ''; position: absolute; top: -40px; right: -40px;
+      width: 160px; height: 160px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,255,163,0.08), transparent);
+    }
+
+    /* Admin panel */
+    .admin-revenue {
+      border-radius: 24px; padding: 28px; margin-bottom: 16px;
+      background: linear-gradient(135deg, #1a0f00, #2d1900);
+      border: 1px solid rgba(251,191,36,0.25);
+    }
+
+    /* Task item */
+    .task-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px; border-radius: 16px; margin-bottom: 10px;
+      background: var(--card); border: 1px solid var(--border);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .task-item:active { transform: scale(0.98); border-color: rgba(0,255,163,0.3); }
+    .task-item.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+    .task-icon {
+      width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+      background: rgba(0,255,163,0.06); border: 1px solid rgba(0,255,163,0.15);
+      display: flex; align-items: center; justify-content: center; font-size: 26px;
+    }
+
+    /* Timer */
+    .timer-ring { transform: rotate(-90deg); }
+    .timer-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 8; }
+    .timer-fill { fill: none; stroke: var(--green); stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+
+    /* Modal */
     .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
       z-index: 200; display: flex; align-items: flex-end;
+      backdrop-filter: blur(4px);
     }
-    .modal-content {
-      background: #0f172a; border-radius: 24px 24px 0 0;
-      padding: 24px; width: 100%; max-width: 480px; margin: 0 auto;
+    .modal-sheet {
+      background: #0d1526; border-radius: 28px 28px 0 0;
+      padding: 28px 24px 40px; width: 100%; max-width: 480px; margin: 0 auto;
       border: 1px solid rgba(255,255,255,0.08);
+      animation: fadeUp 0.3s ease;
     }
-
-    .hidden { display: none !important; }
-    .pb80 { padding-bottom: 80px; }
+    .modal-handle {
+      width: 40px; height: 4px; background: var(--dark);
+      border-radius: 99px; margin: 0 auto 20px;
+    }
   </style>
 </head>
 <body>
-<div id="app">
-  <div id="loading" style="display:flex;align-items:center;justify-content:center;min-height:100vh;">
-    <div style="text-align:center">
-      <div class="float" style="font-size:60px;margin-bottom:16px">⚡</div>
-      <div class="logo" style="font-size:28px">Zotask</div>
-      <div style="margin-top:16px;color:#334155;display:flex;align-items:center;gap:8px;justify-content:center">
-        <div class="spinner" style="width:16px;height:16px;border:2px solid #334155;border-top-color:#00ffa3;border-radius:50%"></div>
-        Chargement...
-      </div>
-    </div>
-  </div>
-  <div id="main" class="hidden"></div>
+
+<div id="loader">
+  <div class="anim-float" style="font-size:56px">⚡</div>
+  <div class="loader-logo">Zotask</div>
+  <div class="loader-spinner"></div>
 </div>
 
+<div id="root" style="display:none"></div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<!-- Kkiapay -->
+<script src="https://cdn.kkiapay.me/k.js"></script>
+
 <script>
-// ═══════════════════════════════
-// FIREBASE CONFIG
-// ═══════════════════════════════
-const firebaseConfig = {
+/* ═══════════════════════════════════
+   FIREBASE
+═══════════════════════════════════ */
+firebase.initializeApp({
   apiKey: "AIzaSyCvdZpokkKNJYUKJYozNH7a-LIG6_mZar0",
   authDomain: "zotask-32227.firebaseapp.com",
   projectId: "zotask-32227",
@@ -166,330 +245,224 @@ const firebaseConfig = {
   messagingSenderId: "434933342924",
   appId: "1:434933342924:web:e6f30866e9b07517ee1869",
   databaseURL: "https://zotask-32227-default-rtdb.firebaseio.com/"
-};
-firebase.initializeApp(firebaseConfig);
+});
 const auth = firebase.auth();
 const db = firebase.database();
 
-// ═══════════════════════════════
-// CONFIG
-// ═══════════════════════════════
+/* ═══════════════════════════════════
+   CONFIG
+═══════════════════════════════════ */
 const KKIAPAY_ID = "6a0595134337716e6694f2cf";
 const ADMIN_EMAIL = "zotask.app@gmail.com";
 const ADMIN_RATE = 0.15;
-const WITHDRAW_MULT = 2;
 
 const PLANS = [
-  { amount:1000,  label:"Starter", color:"#00ffa3", tasks:2,  gainUser:50,  gainAdmin:150, emoji:"🌱" },
-  { amount:2000,  label:"Basic",   color:"#00d4ff", tasks:4,  gainUser:75,  gainAdmin:125, emoji:"⚡" },
-  { amount:5000,  label:"Pro",     color:"#a78bfa", tasks:6,  gainUser:150, gainAdmin:50,  emoji:"🚀" },
-  { amount:10000, label:"Elite",   color:"#fbbf24", tasks:10, gainUser:200, gainAdmin:0,   emoji:"👑" },
+  { id:"starter", amount:1000,  label:"Starter", color:"#00ffa3", tasks:2,  gainUser:50,  gainAdmin:150, emoji:"🌱", gradient:"135deg,#003322,#00211a" },
+  { id:"basic",   amount:2000,  label:"Basic",   color:"#00d4ff", tasks:4,  gainUser:75,  gainAdmin:125, emoji:"⚡", gradient:"135deg,#002233,#001a22" },
+  { id:"pro",     amount:5000,  label:"Pro",     color:"#a78bfa", tasks:6,  gainUser:150, gainAdmin:50,  emoji:"🚀", gradient:"135deg,#1a1033,#120a22" },
+  { id:"elite",   amount:10000, label:"Elite",   color:"#fbbf24", tasks:10, gainUser:200, gainAdmin:0,   emoji:"👑", gradient:"135deg,#1a1000,#110a00" },
 ];
 
 const TASKS = [
-  { id:"ad",     icon:"📺", label:"Regarder une publicité",  type:"timer",  duration:15 },
-  { id:"survey", icon:"📋", label:"Sondage sponsorisé",      type:"survey", duration:0  },
-  { id:"game",   icon:"🎮", label:"Mini-jeu",                type:"game",   duration:0  },
-  { id:"browse", icon:"🌐", label:"Navigation sponsorisée",  type:"timer",  duration:20 },
-  { id:"video",  icon:"🎬", label:"Regarder une vidéo",     type:"timer",  duration:30 },
-  { id:"refer",  icon:"👥", label:"Parrainer un ami",        type:"refer",  duration:0  },
-  { id:"signup", icon:"📝", label:"Inscription partenaire",  type:"timer",  duration:10 },
+  { id:"ad",     icon:"📺", label:"Regarder une publicité",  type:"timer",  duration:15, source:"AdSense"   },
+  { id:"survey", icon:"📋", label:"Sondage sponsorisé",      type:"survey", duration:0,  source:"CPX"       },
+  { id:"game",   icon:"🎮", label:"Mini-jeu",                type:"game",   duration:0,  source:"Interne"   },
+  { id:"browse", icon:"🌐", label:"Navigation sponsorisée",  type:"timer",  duration:20, source:"Bitlabs"   },
+  { id:"video",  icon:"🎬", label:"Regarder une vidéo",     type:"timer",  duration:30, source:"AdSense"   },
+  { id:"refer",  icon:"👥", label:"Parrainer un ami",        type:"refer",  duration:0,  source:"Interne"   },
+  { id:"signup", icon:"📝", label:"Inscription partenaire",  type:"timer",  duration:10, source:"Bitlabs"   },
 ];
 
 const COUNTRIES = [
-  { code:"BJ", name:"Bénin",         flag:"🇧🇯" },
-  { code:"SN", name:"Sénégal",       flag:"🇸🇳" },
-  { code:"CI", name:"Côte d'Ivoire", flag:"🇨🇮" },
-  { code:"TG", name:"Togo",          flag:"🇹🇬" },
-  { code:"BF", name:"Burkina Faso",  flag:"🇧🇫" },
-  { code:"ML", name:"Mali",          flag:"🇲🇱" },
-  { code:"GN", name:"Guinée",        flag:"🇬🇳" },
-  { code:"NE", name:"Niger",         flag:"🇳🇪" },
+  {code:"BJ",name:"Bénin",flag:"🇧🇯"},{code:"SN",name:"Sénégal",flag:"🇸🇳"},
+  {code:"CI",name:"Côte d'Ivoire",flag:"🇨🇮"},{code:"TG",name:"Togo",flag:"🇹🇬"},
+  {code:"BF",name:"Burkina Faso",flag:"🇧🇫"},{code:"ML",name:"Mali",flag:"🇲🇱"},
+  {code:"GN",name:"Guinée",flag:"🇬🇳"},{code:"NE",name:"Niger",flag:"🇳🇪"},
 ];
 
-// ═══════════════════════════════
-// STATE
-// ═══════════════════════════════
-let state = {
+/* ═══════════════════════════════════
+   STATE
+═══════════════════════════════════ */
+let S = {
   screen: "landing",
-  user: null,
-  userData: null,
-  history: [],
-  selectedPlan: null,
-  activeTask: null,
-  taskState: null,
-  taskTimer: null,
-  surveyStep: 0,
-  gameSecret: 0,
-  withdrawMethod: null,
-  withdrawPhone: "",
-  withdrawDone: false,
-  showAdmin: false,
+  user: null, userData: null, history: [],
+  selectedPlan: null, activeTask: null,
+  taskState: null, surveyStep: 0, gameSecret: 0,
+  withdrawMethod: null, withdrawPhone: "",
+  withdrawDone: false, showAdmin: false,
   adminStats: { users:0, totalCommission:0 },
-  logoTaps: 0,
-  toast: null,
-  toastTimer: null,
+  logoTaps: 0, timerInterval: null,
 };
 
-// ═══════════════════════════════
-// HELPERS
-// ═══════════════════════════════
+/* ═══════════════════════════════════
+   HELPERS
+═══════════════════════════════════ */
 const fmt = n => Math.round(n||0).toLocaleString("fr-FR") + " FCFA";
-const nowStr = () => new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
-const todayStr = () => new Date().toISOString().split("T")[0];
-const getPlan = amt => PLANS.find(p=>p.amount===amt)||PLANS[0];
+const now = () => new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+const today = () => new Date().toISOString().split("T")[0];
+const getPlan = amt => PLANS.find(p=>p.amount===amt) || PLANS[0];
+const tasksToday = () => !S.userData ? 0 : (S.userData.lastTaskDate===today() ? (S.userData.tasksToday||0) : 0);
 
-function notify(msg, type="success") {
-  if (state.toastTimer) clearTimeout(state.toastTimer);
-  state.toast = { msg, type };
-  render();
-  state.toastTimer = setTimeout(() => { state.toast = null; render(); }, 3500);
+let toastTimer;
+function toast(msg, type="success") {
+  clearTimeout(toastTimer);
+  let el = document.getElementById("toast");
+  if (!el) { el = document.createElement("div"); el.id="toast"; document.body.appendChild(el); }
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  el.style.display = "block";
+  toastTimer = setTimeout(() => { el.style.display="none"; }, 3500);
 }
 
-function setScreen(s) {
-  state.screen = s;
+function go(screen) {
+  if (S.timerInterval) { clearInterval(S.timerInterval); S.timerInterval=null; }
+  S.screen = screen;
   window.scrollTo(0,0);
   render();
 }
 
 function tapLogo() {
-  state.logoTaps++;
-  if (state.logoTaps >= 7) {
-    state.showAdmin = true;
-    state.logoTaps = 0;
-    notify("Panel admin activé 🔓");
-  }
+  S.logoTaps++;
+  if (S.logoTaps >= 7) { S.showAdmin=true; S.logoTaps=0; toast("Panel admin activé 🔓"); render(); }
 }
 
-function getTasksToday() {
-  if (!state.userData) return 0;
-  if (state.userData.lastTaskDate !== todayStr()) return 0;
-  return state.userData.tasksToday || 0;
-}
-
-// ═══════════════════════════════
-// FIREBASE OPERATIONS
-// ═══════════════════════════════
+/* ═══════════════════════════════════
+   FIREBASE OPS
+═══════════════════════════════════ */
 async function loadUser(uid) {
-  const snap = await db.ref(`users/${uid}`).get();
-  if (snap.exists()) {
-    state.userData = snap.val();
-    const hSnap = await db.ref(`transactions/${uid}`).get();
-    if (hSnap.exists()) state.history = Object.values(hSnap.val()).reverse();
-    setScreen(state.userData.depositAmount > 0 ? "dashboard" : "plans");
-  } else {
-    setScreen("plans");
+  try {
+    const snap = await db.ref(`users/${uid}`).get();
+    if (snap.exists()) {
+      S.userData = snap.val();
+      const h = await db.ref(`transactions/${uid}`).get();
+      S.history = h.exists() ? Object.values(h.val()).reverse() : [];
+      go(S.userData.depositAmount > 0 ? "dashboard" : "plans");
+    } else {
+      go("plans");
+    }
+  } catch(e) {
+    console.error(e);
+    go("plans");
   }
 }
 
-async function doRegister(name, email, password, country, ref) {
+async function register(name, email, pass, country, ref) {
   try {
-    const cred = await auth.createUserWithEmailAndPassword(email, password);
+    const c = await auth.createUserWithEmailAndPassword(email, pass);
     const refCode = "ZT" + Math.random().toString(36).substr(2,6).toUpperCase();
-    const newUser = {
-      uid: cred.user.uid, name, email, ref: refCode, country,
-      balance: ref ? 500 : 0,
-      depositAmount:0, tasksDone:0, totalEarned:0,
-      adminEarned:0, tasksToday:0, lastTaskDate:"",
-      joined: new Date().toISOString(),
-    };
-    await db.ref(`users/${cred.user.uid}`).set(newUser);
-    state.userData = newUser;
-    if (ref) notify("Bonus parrainage : +500 FCFA ! 🎉");
-    setScreen("plans");
+    const u = { uid:c.user.uid, name, email, ref:refCode, country,
+      balance: ref?500:0, depositAmount:0, tasksDone:0, totalEarned:0,
+      adminEarned:0, tasksToday:0, lastTaskDate:"", joined:new Date().toISOString() };
+    await db.ref(`users/${c.user.uid}`).set(u);
+    S.userData = u;
+    if (ref) toast("Bonus parrainage : +500 FCFA ! 🎉");
+    go("plans");
   } catch(e) {
-    const msgs = {
-      "auth/email-already-in-use":"Email déjà utilisé",
-      "auth/invalid-email":"Email invalide",
-      "auth/weak-password":"Mot de passe trop faible",
-    };
-    notify(msgs[e.code]||"Erreur d'inscription","error");
+    const m = {"auth/email-already-in-use":"Email déjà utilisé","auth/invalid-email":"Email invalide","auth/weak-password":"Mot de passe trop court"};
+    toast(m[e.code]||"Erreur inscription", "error");
   }
 }
 
-async function doLogin(email, password) {
+async function login(email, pass) {
   try {
-    await auth.signInWithEmailAndPassword(email, password);
+    await auth.signInWithEmailAndPassword(email, pass);
   } catch(e) {
-    const msgs = {
-      "auth/user-not-found":"Compte introuvable",
-      "auth/wrong-password":"Mot de passe incorrect",
-      "auth/invalid-credential":"Email ou mot de passe incorrect",
-    };
-    notify(msgs[e.code]||"Erreur de connexion","error");
+    const m = {"auth/user-not-found":"Compte introuvable","auth/wrong-password":"Mot de passe incorrect","auth/invalid-credential":"Identifiants incorrects"};
+    toast(m[e.code]||"Erreur connexion", "error");
   }
 }
 
-async function doDeposit(plan) {
-  const adminCut = Math.round(plan.amount * ADMIN_RATE);
-  const net = plan.amount - adminCut;
-  const updated = {
-    ...state.userData,
-    balance: (state.userData.balance||0) + net,
-    depositAmount: plan.amount,
-    adminEarned: (state.userData.adminEarned||0) + adminCut,
-    tasksToday: 0, lastTaskDate: todayStr(),
-  };
-  await db.ref(`users/${state.user.uid}`).update(updated);
-  await db.ref(`transactions/${state.user.uid}`).push({
-    type:"deposit", label:`Dépôt ${plan.label}`,
-    amount:plan.amount, net, admin:adminCut, date:nowStr()
-  });
-  const adminSnap = await db.ref("admin/totalCommission").get();
-  await db.ref("admin/totalCommission").set((adminSnap.exists()?adminSnap.val():0)+adminCut);
-  state.userData = updated;
-  state.history = [{ type:"deposit", label:`Dépôt ${plan.label}`, amount:plan.amount, net, date:nowStr() }, ...state.history];
-  state.selectedPlan = null;
-  notify(`✅ Dépôt de ${fmt(plan.amount)} confirmé !`);
-  setScreen("dashboard");
+async function deposit(plan) {
+  const cut = Math.round(plan.amount * ADMIN_RATE);
+  const net = plan.amount - cut;
+  const updated = { ...S.userData, balance:(S.userData.balance||0)+net,
+    depositAmount:plan.amount, adminEarned:(S.userData.adminEarned||0)+cut,
+    tasksToday:0, lastTaskDate:today() };
+  await db.ref(`users/${S.user.uid}`).update(updated);
+  await db.ref(`transactions/${S.user.uid}`).push({type:"deposit",label:`Dépôt ${plan.label}`,amount:plan.amount,net,admin:cut,date:now()});
+  const as = await db.ref("admin/totalCommission").get();
+  await db.ref("admin/totalCommission").set((as.exists()?as.val():0)+cut);
+  S.userData = updated;
+  S.history = [{type:"deposit",label:`Dépôt ${plan.label}`,amount:plan.amount,net,date:now()},...S.history];
+  S.selectedPlan = null;
+  toast(`✅ Dépôt de ${fmt(plan.amount)} confirmé !`);
+  go("dashboard");
 }
 
-async function completeTask(success) {
-  if (!success) { state.taskState = "fail"; render(); return; }
-  const plan = getPlan(state.userData.depositAmount);
-  const gain = plan.gainUser;
-  const adminGain = plan.gainAdmin;
-  const newTasksToday = (state.userData.lastTaskDate===todayStr()?(state.userData.tasksToday||0):0)+1;
-  const updated = {
-    ...state.userData,
-    balance: (state.userData.balance||0)+gain,
-    tasksDone: (state.userData.tasksDone||0)+1,
-    totalEarned: (state.userData.totalEarned||0)+gain,
-    adminEarned: (state.userData.adminEarned||0)+adminGain,
-    tasksToday: newTasksToday,
-    lastTaskDate: todayStr(),
-  };
-  await db.ref(`users/${state.user.uid}`).update(updated);
-  await db.ref(`transactions/${state.user.uid}`).push({
-    type:"task", label:state.activeTask.label, gain, admin:adminGain, date:nowStr()
-  });
-  if (adminGain > 0) {
-    const adminSnap = await db.ref("admin/totalCommission").get();
-    await db.ref("admin/totalCommission").set((adminSnap.exists()?adminSnap.val():0)+adminGain);
+async function finishTask(success) {
+  if (!success) { S.taskState="fail"; render(); return; }
+  const plan = getPlan(S.userData.depositAmount);
+  const td = (S.userData.lastTaskDate===today()?(S.userData.tasksToday||0):0)+1;
+  const updated = { ...S.userData,
+    balance:(S.userData.balance||0)+plan.gainUser,
+    tasksDone:(S.userData.tasksDone||0)+1,
+    totalEarned:(S.userData.totalEarned||0)+plan.gainUser,
+    adminEarned:(S.userData.adminEarned||0)+plan.gainAdmin,
+    tasksToday:td, lastTaskDate:today() };
+  await db.ref(`users/${S.user.uid}`).update(updated);
+  await db.ref(`transactions/${S.user.uid}`).push({type:"task",label:S.activeTask.label,gain:plan.gainUser,admin:plan.gainAdmin,date:now()});
+  if (plan.gainAdmin > 0) {
+    const as = await db.ref("admin/totalCommission").get();
+    await db.ref("admin/totalCommission").set((as.exists()?as.val():0)+plan.gainAdmin);
   }
-  state.userData = updated;
-  state.history = [{ type:"task", label:state.activeTask.label, gain, date:nowStr() }, ...state.history];
-  state.taskState = "done";
-  notify(`+${fmt(gain)} crédités ! 🎉`);
+  S.userData = updated;
+  S.history = [{type:"task",label:S.activeTask.label,gain:plan.gainUser,date:now()},...S.history];
+  S.taskState = "done";
+  toast(`+${fmt(plan.gainUser)} crédités ! 🎉`);
   render();
 }
 
-async function doWithdraw() {
-  if (!state.withdrawMethod) return notify("Choisis une méthode","error");
-  if (!state.withdrawPhone||state.withdrawPhone.length<8) return notify("Numéro invalide","error");
-  const adminCut = Math.round((state.userData.balance||0)*ADMIN_RATE);
-  const net = (state.userData.balance||0)-adminCut;
-  const updated = { ...state.userData, balance:0, depositAmount:0, adminEarned:(state.userData.adminEarned||0)+adminCut };
-  await db.ref(`users/${state.user.uid}`).update(updated);
-  await db.ref(`transactions/${state.user.uid}`).push({
-    type:"withdraw", label:`Retrait ${state.withdrawMethod}`,
-    amount:state.userData.balance, net, phone:state.withdrawPhone, admin:adminCut, date:nowStr()
-  });
-  const adminSnap = await db.ref("admin/totalCommission").get();
-  await db.ref("admin/totalCommission").set((adminSnap.exists()?adminSnap.val():0)+adminCut);
-  state.userData = updated;
-  state.withdrawDone = true;
-  notify("Retrait en cours de traitement !");
+async function withdraw() {
+  if (!S.withdrawMethod) return toast("Choisis une méthode","error");
+  if (!S.withdrawPhone||S.withdrawPhone.length<8) return toast("Numéro invalide","error");
+  const cut = Math.round((S.userData.balance||0)*ADMIN_RATE);
+  const net = (S.userData.balance||0)-cut;
+  const updated = {...S.userData, balance:0, depositAmount:0, adminEarned:(S.userData.adminEarned||0)+cut};
+  await db.ref(`users/${S.user.uid}`).update(updated);
+  await db.ref(`transactions/${S.user.uid}`).push({type:"withdraw",label:`Retrait ${S.withdrawMethod}`,amount:S.userData.balance,net,phone:S.withdrawPhone,admin:cut,date:now()});
+  const as = await db.ref("admin/totalCommission").get();
+  await db.ref("admin/totalCommission").set((as.exists()?as.val():0)+cut);
+  S.userData = updated;
+  S.withdrawDone = true;
+  toast("Retrait en cours de traitement !");
   render();
 }
 
-async function loadAdminStats() {
-  const usersSnap = await db.ref("users").get();
-  const adminSnap = await db.ref("admin/totalCommission").get();
-  state.adminStats = {
-    users: usersSnap.exists() ? Object.keys(usersSnap.val()).length : 0,
-    totalCommission: adminSnap.exists() ? adminSnap.val() : 0,
-  };
+async function loadAdmin() {
+  const u = await db.ref("users").get();
+  const a = await db.ref("admin/totalCommission").get();
+  S.adminStats = { users: u.exists()?Object.keys(u.val()).length:0, totalCommission: a.exists()?a.val():0 };
   render();
 }
 
-// ═══════════════════════════════
-// KKIAPAY
-// ═══════════════════════════════
-function openKkiapay(plan) {
-  state.selectedPlan = plan;
-  openKkiapayWidget({
-    amount: plan.amount,
-    key: KKIAPAY_ID,
-    sandbox: false,
-    phone: "",
-  });
-  addSuccessListener(async (response) => {
-    await doDeposit(plan);
-  });
+/* ═══════════════════════════════════
+   KKIAPAY
+═══════════════════════════════════ */
+function payWithKkiapay(plan) {
+  S.selectedPlan = plan;
+  try {
+    openKkiapayWidget({ amount:plan.amount, key:KKIAPAY_ID, sandbox:false });
+    addSuccessListener(() => deposit(plan));
+  } catch(e) {
+    toast("Paiement en cours d'activation. Réessaie bientôt.", "error");
+  }
 }
 
-// ═══════════════════════════════
-// RENDER
-// ═══════════════════════════════
+/* ═══════════════════════════════════
+   RENDER
+═══════════════════════════════════ */
 function render() {
-  const main = document.getElementById("main");
-  const loading = document.getElementById("loading");
-  loading.classList.add("hidden");
-  main.classList.remove("hidden");
-  main.innerHTML = buildHTML();
-  attachEvents();
-}
+  const root = document.getElementById("root");
+  const plan = S.userData ? getPlan(S.userData.depositAmount) : null;
+  const td = tasksToday();
+  const maxT = plan ? plan.tasks : 0;
+  const canTask = td < maxT && !!plan;
+  const canWithdraw = S.userData && (S.userData.balance||0) >= ((S.userData.depositAmount||0)*2) && (S.userData.depositAmount||0)>=1000;
+  const progress = S.userData && S.userData.depositAmount > 0 ? Math.min(((S.userData.balance||0)/((S.userData.depositAmount||1)*2))*100,100) : 0;
 
-function buildHTML() {
-  const s = state;
-  let html = "";
-
-  // TOAST
-  if (s.toast) {
-    html += `<div class="toast ${s.toast.type}">${s.toast.msg}</div>`;
-  }
-
-  const plan = s.userData ? getPlan(s.userData.depositAmount) : null;
-  const tasksToday = getTasksToday();
-  const maxTasks = plan ? plan.tasks : 0;
-  const canDoTask = tasksToday < maxTasks && s.userData && s.userData.depositAmount > 0;
-  const canWithdraw = s.userData && (s.userData.balance||0) >= ((s.userData.depositAmount||0)*WITHDRAW_MULT) && (s.userData.depositAmount||0)>=1000;
-  const progress = s.userData && s.userData.depositAmount > 0 ? Math.min(((s.userData.balance||0)/((s.userData.depositAmount||1)*2))*100,100) : 0;
-
-  // HEADER
-  const header = `
+  /* HEADER */
+  const H = () => `
     <div class="header">
       <span class="logo" onclick="tapLogo()">Zotask</span>
-      <div style="display:flex;gap:8px;align-items:center">
-        ${s.showAdmin ? `<button onclick="setScreen('admin')" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);color:#fbbf24;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">ADMIN 🔑</button>` : ""}
-        ${s.userData ? `<div style="text-align:right"><div style="font-size:10px;color:#334155">Solde</div><div style="font-weight:900;color:#00ffa3;font-size:14px">${fmt(s.userData.balance)}</div></div>` : ""}
-      </div>
-    </div>`;
-
-  // NAVBAR
-  const navbar = `
-    <div class="navbar">
-      ${[["🏠","Accueil","dashboard"],["⚡","Tâches","dashboard"],["📜","Historique","history"],["💸","Retrait","withdraw"]].map(([icon,label,scr])=>`
-        <button class="navbtn" onclick="setScreen('${scr}')" style="color:${s.screen===scr?'#00ffa3':'#334155'}">
-          <span class="icon">${icon}</span>${label}
-        </button>`).join("")}
-    </div>`;
-
-  // ── LANDING ──
-  if (s.screen === "landing") {
-    html += `
-      <div style="min-height:100vh;background:linear-gradient(160deg,#060d1a,#080f20,#06111a)">
-        <div class="header"><span class="logo" onclick="tapLogo()">Zotask</span></div>
-        <div style="padding:40px 24px 0;text-align:center">
-          <div class="float" style="font-size:80px;margin-bottom:12px">💰</div>
-          <h1 style="font-size:32px;font-weight:900;line-height:1.2;margin-bottom:16px">
-            Accomplis des tâches.<br>
-            <span style="background:linear-gradient(135deg,#00ffa3,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Multiplie ton argent.</span>
-          </h1>
-          <p style="color:#475569;font-size:15px;line-height:1.8;max-width:360px;margin:0 auto 32px">
-            Dépose via Mobile Money, réalise des missions et retire tes gains.
-          </p>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:32px">
-            ${COUNTRIES.slice(0,4).map(c=>`<div class="gcard" style="padding:10px;text-align:center"><div style="font-size:24px">${c.flag}</div><div style="font-size:10px;color:#334155;margin-top:4px">${c.name}</div></div>`).join("")}
-          </div>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <button class="zbtn" onclick="setScreen('register')" style="background:linear-gradient(135deg,#00ffa3,#00ffa3bb);color:#0a0f1a;box-shadow:0 4px 20px rgba(0,255,163,0.3)">Commencer gratuitement →</button>
-            <button class="zbtn" onclick="setScreen('login')" style="background:#1e293b;color:#64748b">Se connecter</button>
-          </div>
-        </div>
-        <div style="padding:40px 24px">
-          <div style="font-size:20px;font-weight:900;margin-bottom:16px;text-align:center">Nos plans</div>
-          <div class="gcard">
-            ${PLANS.map(p=>`
-              <div style="display:
+      <div style="display:flex;gap:10px;align-items:center">
+        ${S.showAdmin?`<button onclick="go('admin');loadAdmin()" style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.3);color:#fbbf24;border-radius:8px;padding:5px 12px;font-size:1
